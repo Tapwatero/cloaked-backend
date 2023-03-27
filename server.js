@@ -25,6 +25,3 @@ wss.on('connection', ws => {
     });
 });
 
-server.listen(8000, () => {
-    console.log("Secure Server Listening to Port 8000!")
-})
