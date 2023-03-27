@@ -1,16 +1,9 @@
 const {WebSocketServer} = require("ws");
-const https = require("https");
-const fs = require("fs");
 
 
 
-const server = https.createServer({
-    cert: fs.readFileSync('fullchain.pem'),
-    key: fs.readFileSync('privkey.pem')
-});
 
-
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ port: 8080 });
 
 wss.on('connection', ws => {
     console.log('WebSocket Connected!');
