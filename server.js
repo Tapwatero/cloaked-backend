@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import { authenticator } from "otplib";
 
 const io = new Server(8080, {
     cors: {
@@ -10,7 +11,6 @@ const io = new Server(8080, {
 });
 
 
-
 const messages = new Map();
 const connections = new Map();
 const bannedSIDs = [];
@@ -20,64 +20,62 @@ console.log('WebSocket Established!');
 
 io.on("connection", (socket) => {
 
+    socket.on('client-handshake', (args) => {
 
-
-    socket.on('message', packet => {
-
-
-        const data = JSON.parse(packet);
-
-        switch (data["Action"]) {
-            case 0:
-                connections.set(ws, data.SID);
-                return;
-
-
-            case 1:
-                if (bannedSIDs.includes(data['SID']) || data.SID === undefined) {
-                    return;
-                }
-
-                messages.set(data.MID, data.SID);
-                wss.clients.forEach(function each(client) {
-
-
-                    if (client.readyState === 1 && !bannedSIDs.includes(connections.get(client))) {
-
-                        client.send(JSON.stringify(data));
-                    }
-
-                });
-                return;
-            case 2:
-                console.log(`Kicked! ${messages.get(data.MID)}`);
-
-                const payload = {
-                    Action: 2,
-                }
-
-
-                const socket = new Map(Array.from(connections, element => element.reverse()));
-                if (socket.get(messages.get(data.MID)) !== undefined) {
-                    socket.get(messages.get(data.MID)).send(JSON.stringify(payload));
-                }
-
-                return;
-            case 3:
-                bannedSIDs.push(messages.get(data.MID));
-                return;
-            case 4:
-                bannedSIDs.splice(bannedSIDs.indexOf(messages.get(data.MID)), 1);
+        // Temp Fix
+        if (bannedSIDs.includes(args["SID"])) {
+            socket.disconnect();
+            return;
         }
 
-        // Send the received message back to the client
-
+        connections.set(socket, args["SID"]);
     });
 
-    io.on('close', () => {
+    socket.on('client-authenticate', (args) => {
+        return new Promise((resolve, reject) => {
+            const isValid = authenticator.verify({
+                token: args.token,
+                secret: 'JYIBUSCWOEHWKIIJ'
+            });
+            if (isValid) {
+                resolve();
+            } else {
+                reject();
+            }
+        });
+    });
+
+    socket.on('client-kick', (args) => {
+        const socketToKick = new Map(Array.from(connections, element => element.reverse()));
+
+        socketToKick.get(messages.get(args["MID"])).emit('server-kick')
+    });
+
+    socket.on('client-ban', (args) => {
+        bannedSIDs.push(messages.get(args["MID"]));
+    });
+
+    socket.on('client-pardon', (args) => {
+        bannedSIDs.splice(bannedSIDs.indexOf(messages.get(args["MID"])), 1);
+    });
+
+
+    // Broadcast Message To All Clients
+    socket.on('client-message', (args) => {
+        if (bannedSIDs.includes(args["SID"])) {
+            return;
+        }
+
+        messages.set(args["MID"], args["SID"]);
+        io.emit("server-message", args);
+    });
+
+    socket.on('disconnect', () => {
         connections.delete(socket);
         console.log('WebSocket Disconnected!');
     });
 
-});
+
+})
+;
 
