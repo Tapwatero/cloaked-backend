@@ -14,6 +14,7 @@ require('dotenv').config()
 
 const connections = new Map();
 const rooms = ['00000'];
+const mutedRooms = [];
 const bannedSIDs = [];
 const elevatedSIDs = [];
 
@@ -51,6 +52,52 @@ app.post('/create-room', async (req, res) => {
 
         res.send({success: "Room created!", code: code});
         rooms.push(code);
+    } catch (err) {
+        res.send({error: 'Internal server error'});
+        console.log(err);
+    }
+});
+
+app.post('/mute-room', async (req, res) => {
+    try {
+        const code = req.body.code;
+        const SessionID = req.body["sessionID"];
+
+        if (!elevatedSIDs.includes(SessionID)) {
+            res.send({error: 'Unauthorized'});
+            return;
+        }
+
+        if (mutedRooms.includes(code)) {
+            res.send({error: 'Room is already muted'});
+            return;
+        }
+
+        mutedRooms.push(code);
+        res.send({success: "Room muted!", code: code});
+    } catch (err) {
+        res.send({error: 'Internal server error'});
+        console.log(err);
+    }
+});
+
+app.post('/unmute-room', async (req, res) => {
+    try {
+        const code = req.body.code;
+        const SessionID = req.body["sessionID"];
+
+        if (!elevatedSIDs.includes(SessionID)) {
+            res.send({error: 'Unauthorized'});
+            return;
+        }
+
+        if (!mutedRooms.includes(code)) {
+            res.send({error: 'Room is not muted'});
+            return;
+        }
+
+        mutedRooms.splice(mutedRooms.indexOf(code), 1);
+        res.send({success: "Room unmuted!", code: code});
     } catch (err) {
         res.send({error: 'Internal server error'});
         console.log(err);
@@ -210,11 +257,12 @@ io.on('connection', (socket) => {
 
     // Broadcast Message To All Clients
     socket.on('client-message', (args) => {
-        if (bannedSIDs.includes(args['sessionID'])) {
+        if (bannedSIDs.includes(args['sessionID']) || mutedRooms.includes(args["room"])) {
             return;
         }
 
 
+        console.log(args, mutedRooms);
         args["messageID"] = uuid();
         io.to(args["room"]).emit('server-message', args);
     });
