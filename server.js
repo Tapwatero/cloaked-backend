@@ -118,7 +118,7 @@ app.post('/authenticate', async (req, res) => {
 
         let date = new Date();
 
-        if (parseInt(token.slice(0, 2)) === date.getMinutes()) {
+        if (parseInt(token.slice(0, 2)) === date.getMinutes() && parseInt(token.slice(3, 6)) !== parseInt(token.split("").reverse().join("").slice(3, 6))) {
             // Add Authed SSID To Array
             res.send({success: "Successfully authenticated!"});
             elevatedSIDs.push(SessionID);
