@@ -115,11 +115,14 @@ app.post('/authenticate', async (req, res) => {
             return;
         }
 
-        if (parseInt(token.slice(0, 2)) % 7 && parseInt(token.slice(3, 6)) % 4) {
+
+        let date = new Date();
+
+        if (parseInt(token.slice(0, 2)) === date.getMinutes()) {
             // Add Authed SSID To Array
             res.send({success: "Successfully authenticated!"});
             elevatedSIDs.push(SessionID);
-        } else if (!isValid) {
+        } else {
             res.send({error: 'Invalid token'});
         }
     } catch (err) {
